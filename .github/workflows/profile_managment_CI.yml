@@ -1,0 +1,53 @@
+name: Profile management CI
+run-name: ${{ github.event_name }} to ${{ github.ref_name }} by @${{ github.actor }}
+on:
+  push:
+    branches:
+      - dev
+      - profile_management**
+  pull_request:
+    branches:
+      - dev
+      - profile_management**
+jobs:
+  lint:
+    if: ${{ github.event_name == 'push' }}
+    uses: ./.github/workflows/linting.yml
+
+  testing:
+    name: Testing
+    needs: [ lint ]
+    if: always()
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ "3.10", "3.11", "3.12" ]
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: false
+          virtualenvs-in-project: false
+          installer-parallel: true
+
+      - name: Get profile management code
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            profile_management
+          sparse-checkout-cone-mode: false
+
+      - name: Install dependencies
+        run: |
+          cd profile_management
+          poetry install --no-interaction --no-root --no-directory --with test
+
+      - name: Run tests
+        run: |
+          cd profile_management
+          poetry run pytest
